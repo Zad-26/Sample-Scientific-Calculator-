@@ -1,0 +1,90 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main          # triggers every time you push to main branch
+  workflow_dispatch:  # also lets you trigger it manually on GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04   # GitHub's free Linux server
+
+    steps:
+
+      # 1. Check out your repo code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up Python
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      # 3. Install system dependencies needed by Buildozer
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            libltdl-dev \
+            libmtdev-dev \
+            libgl1-mesa-dev \
+            openjdk-17-jdk \
+            unzip \
+            autoconf \
+            libtool \
+            pkg-config \
+            cmake
+
+      # 4. Install Python build tools
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
+
+      # 5. Cache the Buildozer global directory to speed up future builds
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v3
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      # 6. Build the APK (debug mode)
+      - name: Build APK with Buildozer
+        run: |
+          buildozer android debug 2>&1 | tee build.log
+
+      # 7. Upload the APK as a downloadable artifact
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ScientificCalculator-APK
+          path: bin/*.apk
+          if-no-files-found: error
+
+      # 8. (Optional) Also upload build log if something goes wrong
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-log
+          path: build.log
