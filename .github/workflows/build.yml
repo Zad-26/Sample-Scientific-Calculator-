@@ -22,7 +22,14 @@ jobs:
         with:
           python-version: "3.10"
 
-      # 3. Install system dependencies (removed broken gstreamer packages)
+      # 3. Set up Java 17
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      # 4. Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -30,7 +37,6 @@ jobs:
             python3-pip \
             build-essential \
             git \
-            openjdk-17-jdk \
             unzip \
             autoconf \
             libtool \
@@ -39,25 +45,43 @@ jobs:
             zlib1g-dev \
             libffi-dev \
             libssl-dev \
-            libsqlite3-dev \
-            libbz2-dev \
-            libreadline-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            xz-utils \
-            tk-dev \
-            libxml2-dev \
-            libxmlsec1-dev \
-            liblzma-dev \
             patch
 
-      # 4. Install Python build tools
+      # 5. Install Android SDK command line tools
+      - name: Set up Android SDK
+        run: |
+          # Download Android command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          unzip -q cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+
+          # Set environment variables
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/build-tools/33.0.0" >> $GITHUB_PATH
+
+      # 6. Accept licenses and install SDK packages
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --sdk_root=$HOME/android-sdk --licenses || true
+          sdkmanager --sdk_root=$HOME/android-sdk \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.0" \
+            "ndk;25.2.9519653"
+
+          echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+
+      # 7. Install Python build tools
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer cython==0.29.33
 
-      # 5. Cache Buildozer to speed up future builds
+      # 8. Cache Buildozer
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
         with:
@@ -66,12 +90,12 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
-      # 6. Build the APK
+      # 9. Build APK
       - name: Build APK with Buildozer
         run: |
           buildozer android debug 2>&1 | tee build.log
 
-      # 7. Upload APK
+      # 10. Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -79,7 +103,7 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
 
-      # 8. Upload build log (always, even on failure)
+      # 11. Upload build log (always)
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
