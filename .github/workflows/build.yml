@@ -49,41 +49,44 @@ jobs:
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
 
-      # 5. Install Android SDK + NDK via sdkmanager (most reliable method)
-      - name: Install Android SDK and NDK
+      # 5. Install Android SDK via sdkmanager
+      - name: Install Android SDK
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
+          ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $ANDROID_HOME/cmdline-tools
 
-          # Download SDK command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdtools.zip
           unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
           mv /tmp/cmdtools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
 
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
 
-          # Accept all licenses
-          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
-
-          # Install SDK packages including NDK via sdkmanager
-          sdkmanager --sdk_root=$ANDROID_HOME \
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME \
             "platform-tools" \
             "platforms;android-33" \
-            "build-tools;33.0.0" \
-            "ndk;25.2.9519653"
+            "build-tools;33.0.0"
 
-          # Verify NDK was installed
-          ls $ANDROID_HOME/ndk/
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
 
-          # Set all env vars
-          echo "ANDROID_HOME=$ANDROID_HOME"               >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"           >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin"   >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools"             >> $GITHUB_PATH
-          echo "$ANDROID_HOME/build-tools/33.0.0"        >> $GITHUB_PATH
+      # 6. Install Android NDK into Buildozer's expected location
+      - name: Install Android NDK
+        run: |
+          NDK_DIR=$HOME/.buildozer/android/platform/android-ndk-r25b
+          mkdir -p $HOME/.buildozer/android/platform
 
-      # 6. Cache Buildozer
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip \
+            -O /tmp/ndk.zip
+
+          unzip -q /tmp/ndk.zip -d $HOME/.buildozer/android/platform/
+
+          # Confirm extraction
+          ls $HOME/.buildozer/android/platform/
+
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+      # 7. Cache Buildozer (after SDK/NDK installed)
       - name: Cache Buildozer
         uses: actions/cache@v4
         with:
@@ -92,15 +95,12 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
-      # 7. Build APK
+      # 8. Build APK
       - name: Build APK
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
           buildozer -v android debug 2>&1 | tee build.log
 
-      # 8. Upload APK
+      # 9. Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -108,7 +108,7 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
 
-      # 9. Upload build log always
+      # 10. Upload build log always
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
