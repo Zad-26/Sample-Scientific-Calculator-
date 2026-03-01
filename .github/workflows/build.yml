@@ -24,10 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            python3-pip build-essential git unzip zip \
-            autoconf libtool pkg-config cmake \
-            zlib1g-dev libffi-dev libssl-dev patch wget
+          sudo apt-get install -y python3-pip build-essential git unzip zip autoconf libtool pkg-config cmake zlib1g-dev libffi-dev libssl-dev patch wget
 
       - name: Install Python dependencies
         run: |
@@ -50,31 +47,14 @@ jobs:
           mv /tmp/cmdtools/cmdline-tools $ANDROID_SDK/cmdline-tools/latest
           yes | $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK --licenses > /dev/null 2>&1 || true
           $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
-          echo "ANDROID_SDK=$ANDROID_SDK" >> $GITHUB_ENV
 
-      - name: Link NDK into Buildozer folder and patch downloader
-        env:
-          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
+      - name: Link NDK and patch Buildozer
         run: |
-          NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
-          mkdir -p "$(dirname $NDK_DST)"
-          ln -sfn "$NDK_PATH" "$NDK_DST"
-          echo "NDK linked: $NDK_DST"
-
-          ANDROID_PY=$(python3 -c "import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
-          echo "Patching $ANDROID_PY"
-
-          python3 -c "
-import re
-with open('$ANDROID_PY', 'r') as f:
-    content = f.read()
-old = 'self.buildozer.download(url,'
-new = '# PATCHED skip download\n            return\n            self.buildozer.download(url,'
-content = content.replace(old, new, 1)
-with open('$ANDROID_PY', 'w') as f:
-    f.write(content)
-print('Patch applied OK')
-"
+          NDK_DST=$HOME/.buildozer/android/platform/android-ndk-r25b
+          mkdir -p $(dirname $NDK_DST)
+          ln -sfn ${{ steps.setup-ndk.outputs.ndk-path }} $NDK_DST
+          echo "NDK linked to: $NDK_DST"
+          python3 patch_buildozer.py
 
       - name: Cache Buildozer
         uses: actions/cache@v4
@@ -86,10 +66,10 @@ print('Patch applied OK')
 
       - name: Build APK
         run: |
-          export ANDROIDSDK="$HOME/.buildozer/android/platform/android-sdk"
-          export ANDROIDNDK="$HOME/.buildozer/android/platform/android-ndk-r25b"
-          export ANDROIDAPI="33"
-          export ANDROIDMINAPI="21"
+          export ANDROIDSDK=$HOME/.buildozer/android/platform/android-sdk
+          export ANDROIDNDK=$HOME/.buildozer/android/platform/android-ndk-r25b
+          export ANDROIDAPI=33
+          export ANDROIDMINAPI=21
           buildozer -v android debug 2>&1 | tee build.log
 
       - name: Upload APK artifact
