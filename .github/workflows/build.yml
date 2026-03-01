@@ -12,7 +12,7 @@ jobs:
 
     steps:
 
-      # 1. Check out your repo code
+      # 1. Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -22,36 +22,34 @@ jobs:
         with:
           python-version: "3.10"
 
-      # 3. Install system dependencies
+      # 3. Install system dependencies (removed broken gstreamer packages)
       - name: Install system dependencies
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y \
             python3-pip \
             build-essential \
             git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libgstreamer1.0-dev \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            libltdl-dev \
-            libmtdev-dev \
-            libgl1-mesa-dev \
             openjdk-17-jdk \
             unzip \
             autoconf \
             libtool \
             pkg-config \
-            cmake
+            cmake \
+            zlib1g-dev \
+            libffi-dev \
+            libssl-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            liblzma-dev \
+            patch
 
       # 4. Install Python build tools
       - name: Install Python dependencies
@@ -73,7 +71,7 @@ jobs:
         run: |
           buildozer android debug 2>&1 | tee build.log
 
-      # 7. Upload APK as downloadable artifact
+      # 7. Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -81,7 +79,7 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
 
-      # 8. Upload build log (always, even if build fails)
+      # 8. Upload build log (always, even on failure)
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
