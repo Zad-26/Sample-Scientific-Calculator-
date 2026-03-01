@@ -17,17 +17,10 @@ fullscreen = 0
 android.permissions = INTERNET
 android.api = 33
 android.minapi = 21
-android.ndk = 25.2.9519653
+android.ndk = 25b
 android.sdk = 33
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
-
-# Tell Buildozer to use the pre-installed SDK/NDK
-android.sdk_path = /home/runner/android-sdk
-android.ndk_path = /home/runner/android-sdk/ndk/25.2.9519653
-android.ant_path = /usr/bin
-
-# Skip downloading SDK/NDK (we install them manually)
 android.accept_sdk_license = True
 
 [buildozer]
