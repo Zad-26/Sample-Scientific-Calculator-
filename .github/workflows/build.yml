@@ -23,49 +23,7 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      # 3. Install NDK using the official Android NDK action (reliable, no timeout)
-      - name: Install Android NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        with:
-          ndk-version: r25b
-          add-to-path: true
-
-      # 4. Install Android SDK via sdkmanager
-      - name: Install Android SDK
-        run: |
-          ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_HOME/cmdline-tools
-
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -O /tmp/cmdtools.zip
-          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
-          mv /tmp/cmdtools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
-
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            --sdk_root=$ANDROID_HOME \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.0"
-
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-
-      # 5. Copy NDK into Buildozer's expected location
-      - name: Set up NDK for Buildozer
-        run: |
-          NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
-          NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
-          mkdir -p "$(dirname $NDK_DST)"
-          cp -r "$NDK_SRC" "$NDK_DST"
-          echo "ANDROID_NDK_HOME=$NDK_DST" >> $GITHUB_ENV
-          echo "NDK installed at: $NDK_DST"
-          ls "$NDK_DST" | head -5
-
-      # 6. Install system dependencies
+      # 3. Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -82,13 +40,83 @@ jobs:
             zlib1g-dev \
             libffi-dev \
             libssl-dev \
-            patch
+            patch \
+            wget
 
-      # 7. Install Python dependencies
+      # 4. Install Python dependencies
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
+
+      # 5. Install NDK via dedicated action (uses GitHub CDN, no timeout)
+      - name: Install Android NDK r25b
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25b
+          add-to-path: true
+
+      # 6. Install Android SDK into Buildozer's folder
+      - name: Install Android SDK
+        run: |
+          ANDROID_SDK=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $ANDROID_SDK/cmdline-tools
+
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O /tmp/cmdtools.zip
+          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
+          mv /tmp/cmdtools/cmdline-tools $ANDROID_SDK/cmdline-tools/latest
+
+          yes | $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_SDK --licenses > /dev/null 2>&1 || true
+
+          $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_SDK \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.0"
+
+          echo "ANDROID_SDK=$ANDROID_SDK" >> $GITHUB_ENV
+
+      # 7. Place NDK where Buildozer expects it AND patch Buildozer to skip download
+      - name: Set up NDK and patch Buildozer
+        run: |
+          NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
+          NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
+
+          echo "Copying NDK from $NDK_SRC to $NDK_DST"
+          mkdir -p "$(dirname $NDK_DST)"
+          ln -sfn "$NDK_SRC" "$NDK_DST"
+          echo "NDK symlinked: $(ls $NDK_DST | head -3)"
+
+          # Patch Buildozer's android.py to skip NDK download check
+          BUILDOZER_ANDROID=$(python3 -c "import buildozer; import os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
+          echo "Patching: $BUILDOZER_ANDROID"
+
+          # Replace the _install_android_ndk method to just set the path
+          python3 << 'EOF'
+import re
+
+path = __import__('subprocess').check_output(
+    ['python3', '-c',
+     'import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), "targets/android.py"))']
+).decode().strip()
+
+with open(path, 'r') as f:
+    content = f.read()
+
+# Find and replace the NDK download call to skip it
+old = "self.buildozer.download(url,"
+new = "# PATCHED: skip NDK download\n            return\n            self.buildozer.download(url,"
+
+content = content.replace(old, new, 1)
+
+with open(path, 'w') as f:
+    f.write(content)
+
+print("Patch applied successfully")
+EOF
 
       # 8. Cache Buildozer
       - name: Cache Buildozer
@@ -102,6 +130,10 @@ jobs:
       # 9. Build APK
       - name: Build APK
         run: |
+          export ANDROIDSDK="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROIDNDK="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          export ANDROIDAPI="33"
+          export ANDROIDMINAPI="21"
           buildozer -v android debug 2>&1 | tee build.log
 
       # 10. Upload APK
