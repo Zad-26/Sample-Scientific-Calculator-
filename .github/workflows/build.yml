@@ -23,7 +23,49 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      # 3. Install system dependencies
+      # 3. Install NDK using the official Android NDK action (reliable, no timeout)
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25b
+          add-to-path: true
+
+      # 4. Install Android SDK via sdkmanager
+      - name: Install Android SDK
+        run: |
+          ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O /tmp/cmdtools.zip
+          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
+          mv /tmp/cmdtools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
+
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.0"
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+
+      # 5. Copy NDK into Buildozer's expected location
+      - name: Set up NDK for Buildozer
+        run: |
+          NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
+          NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          mkdir -p "$(dirname $NDK_DST)"
+          cp -r "$NDK_SRC" "$NDK_DST"
+          echo "ANDROID_NDK_HOME=$NDK_DST" >> $GITHUB_ENV
+          echo "NDK installed at: $NDK_DST"
+          ls "$NDK_DST" | head -5
+
+      # 6. Install system dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -40,53 +82,15 @@ jobs:
             zlib1g-dev \
             libffi-dev \
             libssl-dev \
-            patch \
-            wget
+            patch
 
-      # 4. Install Python dependencies
+      # 7. Install Python dependencies
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
 
-      # 5. Install Android SDK via sdkmanager
-      - name: Install Android SDK
-        run: |
-          ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_HOME/cmdline-tools
-
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdtools.zip
-          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
-          mv /tmp/cmdtools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
-
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            --sdk_root=$ANDROID_HOME \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.0"
-
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-
-      # 6. Install Android NDK into Buildozer's expected location
-      - name: Install Android NDK
-        run: |
-          NDK_DIR=$HOME/.buildozer/android/platform/android-ndk-r25b
-          mkdir -p $HOME/.buildozer/android/platform
-
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip \
-            -O /tmp/ndk.zip
-
-          unzip -q /tmp/ndk.zip -d $HOME/.buildozer/android/platform/
-
-          # Confirm extraction
-          ls $HOME/.buildozer/android/platform/
-
-          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
-
-      # 7. Cache Buildozer (after SDK/NDK installed)
+      # 8. Cache Buildozer
       - name: Cache Buildozer
         uses: actions/cache@v4
         with:
@@ -95,12 +99,12 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
-      # 8. Build APK
+      # 9. Build APK
       - name: Build APK
         run: |
           buildozer -v android debug 2>&1 | tee build.log
 
-      # 9. Upload APK
+      # 10. Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -108,7 +112,7 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
 
-      # 10. Upload build log always
+      # 11. Upload build log always
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
