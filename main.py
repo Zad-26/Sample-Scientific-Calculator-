@@ -1,570 +1,539 @@
-import tkinter as tk
-from tkinter import font
+"""
+Scientific Calculator — Kivy/Android
+Clean minimal design | White light mode | Dark dark mode | Purple accents
+"""
+
 import math
 import re
 
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.widget import Widget
+from kivy.uix.popup import Popup
+from kivy.uix.switch import Switch
+from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
+from kivy.metrics import dp, sp
+from kivy.core.window import Window
+from kivy.clock import Clock
+
+Window.size = (400, 800)
+
 # ══════════════════════════════════════════════════════
-#  THEMES  –  dark (lavender-purple) + light (lilac)
+#  THEMES
 # ══════════════════════════════════════════════════════
 THEMES = {
     "dark": {
-        "BG":         "#1a1030",
-        "PANEL":      "#221540",
-        "DISPLAY_BG": "#130c25",
-        "ACCENT":     "#c084fc",
-        "ACCENT2":    "#f472b6",
-        "ACCENT3":    "#a78bfa",
-        "BTN_DARK":   "#2d1f52",
-        "BTN_OP":     "#3b1f6e",
-        "BTN_EQ":     "#9333ea",
-        "BTN_FUNC":   "#2a1a4e",
-        "TXT_MAIN":   "#f3e8ff",
-        "TXT_DIM":    "#7c5fa8",
-        "TXT_OP":     "#e879f9",
-        "TXT_FUNC":   "#a78bfa",
-        "TXT_EQ":     "#ffffff",
-        "BORDER":     "#4c2d8a",
-        "SETTINGS_BG":"#1e1238",
-        "TOGGLE_ON":  "#9333ea",
-        "TOGGLE_OFF": "#3b2a5a",
-        "SEP":        "#3b2a6a",
+        # backgrounds
+        "bg":           (0.08, 0.08, 0.10, 1),   # near black
+        "display_bg":   (0.12, 0.12, 0.16, 1),   # dark grey
+        "panel":        (0.10, 0.10, 0.13, 1),
+
+        # buttons
+        "btn_num":      (0.18, 0.18, 0.22, 1),   # dark grey
+        "btn_op":       (0.28, 0.16, 0.45, 1),   # dark purple
+        "btn_func":     (0.15, 0.15, 0.20, 1),   # slightly lighter grey
+        "btn_eq":       (0.55, 0.20, 0.90, 1),   # vivid purple
+        "btn_clear":    (0.35, 0.10, 0.10, 1),   # dark red
+
+        # text
+        "txt_main":     (1.00, 1.00, 1.00, 1),   # white
+        "txt_dim":      (0.60, 0.60, 0.65, 1),   # grey
+        "txt_num":      (1.00, 1.00, 1.00, 1),   # white
+        "txt_op":       (0.80, 0.55, 1.00, 1),   # light purple
+        "txt_func":     (0.75, 0.75, 0.80, 1),   # light grey
+        "txt_eq":       (1.00, 1.00, 1.00, 1),   # white
+        "txt_clear":    (1.00, 0.45, 0.45, 1),   # red
+
+        # accents
+        "accent":       (0.70, 0.40, 1.00, 1),   # purple
+        "accent2":      (1.00, 0.45, 0.45, 1),   # red
+        "accent3":      (0.60, 0.80, 1.00, 1),   # blue
+        "divider":      (0.25, 0.25, 0.30, 1),
+        "border":       (0.25, 0.25, 0.30, 1),
     },
     "light": {
-        "BG":         "#f3e8ff",
-        "PANEL":      "#ede9fe",
-        "DISPLAY_BG": "#faf5ff",
-        "ACCENT":     "#7c3aed",
-        "ACCENT2":    "#db2777",
-        "ACCENT3":    "#8b5cf6",
-        "BTN_DARK":   "#ddd6fe",
-        "BTN_OP":     "#c4b5fd",
-        "BTN_EQ":     "#7c3aed",
-        "BTN_FUNC":   "#e9d5ff",
-        "TXT_MAIN":   "#2e1065",
-        "TXT_DIM":    "#7e22ce",
-        "TXT_OP":     "#6d28d9",
-        "TXT_FUNC":   "#5b21b6",
-        "TXT_EQ":     "#ffffff",
-        "BORDER":     "#a78bfa",
-        "SETTINGS_BG":"#ede9fe",
-        "TOGGLE_ON":  "#7c3aed",
-        "TOGGLE_OFF": "#c4b5fd",
-        "SEP":        "#c4b5fd",
+        # backgrounds
+        "bg":           (1.00, 1.00, 1.00, 1),   # pure white
+        "display_bg":   (0.96, 0.96, 0.98, 1),   # off white
+        "panel":        (1.00, 1.00, 1.00, 1),
+
+        # buttons
+        "btn_num":      (0.94, 0.94, 0.96, 1),   # light grey
+        "btn_op":       (0.90, 0.82, 1.00, 1),   # light purple
+        "btn_func":     (0.90, 0.90, 0.93, 1),   # very light grey
+        "btn_eq":       (0.55, 0.20, 0.90, 1),   # vivid purple
+        "btn_clear":    (1.00, 0.90, 0.90, 1),   # light red
+
+        # text
+        "txt_main":     (0.10, 0.10, 0.10, 1),   # near black
+        "txt_dim":      (0.50, 0.50, 0.55, 1),   # grey
+        "txt_num":      (0.10, 0.10, 0.10, 1),   # near black
+        "txt_op":       (0.45, 0.10, 0.80, 1),   # dark purple
+        "txt_func":     (0.30, 0.30, 0.35, 1),   # dark grey
+        "txt_eq":       (1.00, 1.00, 1.00, 1),   # white
+        "txt_clear":    (0.80, 0.10, 0.10, 1),   # red
+
+        # accents
+        "accent":       (0.55, 0.20, 0.90, 1),   # purple
+        "accent2":      (0.80, 0.10, 0.10, 1),   # red
+        "accent3":      (0.20, 0.50, 0.90, 1),   # blue
+        "divider":      (0.88, 0.88, 0.90, 1),
+        "border":       (0.85, 0.85, 0.88, 1),
     },
 }
 
-_app_theme = dict(THEMES["dark"])
 
+# ══════════════════════════════════════════════════════
+#  CALCULATOR BUTTON
+# ══════════════════════════════════════════════════════
+class CalcButton(Button):
+    def __init__(self, bg_color, fg_color, accent_color, **kwargs):
+        super().__init__(**kwargs)
+        self._bg     = list(bg_color)
+        self._fg     = list(fg_color)
+        self._accent = list(accent_color)
 
-def th(key):
-    return _app_theme[key]
+        self.background_normal = ""
+        self.background_down   = ""
+        self.background_color  = (0, 0, 0, 0)
+        self.color             = fg_color
+        self.bold              = True
+        self.font_size         = sp(14)
+
+        with self.canvas.before:
+            self._rect_col  = Color(*bg_color)
+            self._rect      = RoundedRectangle(
+                pos=self.pos, size=self.size, radius=[dp(10)])
+
+        self.bind(pos=self._upd, size=self._upd)
+
+    def _upd(self, *_):
+        self._rect.pos  = self.pos
+        self._rect.size = self.size
+
+    def on_press(self):
+        # lighten/darken on press
+        factor = 1.18 if self._bg[0] < 0.5 else 0.88
+        pressed = [min(1, c * factor) for c in self._bg[:3]] + [1]
+        self._rect_col.rgba = pressed
+
+    def on_release(self):
+        Clock.schedule_once(lambda dt: self._restore(), 0.10)
+
+    def _restore(self):
+        self._rect_col.rgba = self._bg
+
+    def update_theme(self, bg, fg, accent):
+        self._bg     = list(bg)
+        self._fg     = list(fg)
+        self._accent = list(accent)
+        self.color   = fg
+        self._rect_col.rgba = bg
 
 
 # ══════════════════════════════════════════════════════
-#  ANIMATED BUTTON
+#  DISPLAY
 # ══════════════════════════════════════════════════════
-class AnimButton(tk.Canvas):
-    def __init__(self, parent, text, command,
-                 bg_key="BTN_DARK", fg_key="TXT_MAIN",
-                 radius=10, font_obj=None, **kw):
-        super().__init__(parent, bd=0, highlightthickness=0, **kw)
-        self.command  = command
-        self.text_str = text
-        self.bg_key   = bg_key
-        self.fg_key   = fg_key
-        self.radius   = radius
-        self.font_obj = font_obj
-        self._anim_id = None
-        self._glow    = 0.0
-        self._pressed = False
+class DisplayWidget(BoxLayout):
+    def __init__(self, theme, **kwargs):
+        super().__init__(orientation="vertical",
+                         padding=[dp(16), dp(10), dp(16), dp(10)],
+                         **kwargs)
+        self.size_hint_y = None
+        self.height      = dp(140)
 
-        self.bind("<Configure>",       self._draw)
-        self.bind("<ButtonPress-1>",   self._on_press)
-        self.bind("<ButtonRelease-1>", self._on_release)
-        self.bind("<Enter>",           self._on_enter)
-        self.bind("<Leave>",           self._on_leave)
+        with self.canvas.before:
+            self._bg_col  = Color(*theme["display_bg"])
+            self._bg_rect = RoundedRectangle(
+                pos=self.pos, size=self.size, radius=[dp(16)])
 
-    def refresh_theme(self):
-        self.config(bg=th("PANEL"))
-        self._draw()
+        self.bind(pos=self._upd, size=self._upd)
 
-    def _hex_blend(self, c1, c2, t):
-        r1,g1,b1 = int(c1[1:3],16), int(c1[3:5],16), int(c1[5:7],16)
-        r2,g2,b2 = int(c2[1:3],16), int(c2[3:5],16), int(c2[5:7],16)
-        return "#{:02x}{:02x}{:02x}".format(
-            int(r1+(r2-r1)*t), int(g1+(g2-g1)*t), int(b1+(b2-b1)*t))
+        # ANS label (top left)
+        self.ans_lbl = Label(
+            text="", font_size=sp(11),
+            color=theme["txt_dim"],
+            halign="left", valign="top",
+            size_hint_y=None, height=dp(20))
+        self.ans_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        self.add_widget(self.ans_lbl)
 
-    def _draw(self, *_):
-        self.delete("all")
-        w, h = self.winfo_width(), self.winfo_height()
-        if w < 4 or h < 4:
-            return
+        # expression (middle)
+        self.expr_lbl = Label(
+            text="", font_size=sp(13),
+            color=theme["txt_dim"],
+            halign="right", valign="middle",
+            size_hint_y=None, height=dp(28))
+        self.expr_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        self.add_widget(self.expr_lbl)
 
-        bg_col  = th(self.bg_key)
-        acc_col = th("ACCENT")
-        bdr_col = th("BORDER")
-        fg_col  = th(self.fg_key)
+        # result (big, bottom)
+        self.result_lbl = Label(
+            text="0", font_size=sp(42),
+            color=theme["txt_main"],
+            halign="right", valign="bottom",
+            bold=True)
+        self.result_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        self.add_widget(self.result_lbl)
 
-        t   = self._glow
-        pad = int((1 - (0.85 if self._pressed else 1.0)) * 4)
-        r   = self.radius
-        x0, y0, x1, y1 = pad, pad, w-pad, h-pad
+    def _upd(self, *_):
+        self._bg_rect.pos  = self.pos
+        self._bg_rect.size = self.size
 
-        fill = self._hex_blend(bg_col, acc_col, t * 0.22)
-        pts  = [x0+r,y0, x1-r,y0, x1,y0,   x1,y0+r,
-                x1,y1-r, x1,y1,   x1-r,y1, x0+r,y1,
-                x0,y1,   x0,y1-r, x0,y0+r, x0,y0]
+    def update_theme(self, theme):
+        self._bg_col.rgba        = theme["display_bg"]
+        self.expr_lbl.color      = theme["txt_dim"]
+        self.result_lbl.color    = theme["txt_main"]
+        self.ans_lbl.color       = theme["txt_dim"]
 
-        self.config(bg=th("PANEL"))
-        self.create_polygon(pts, smooth=True, fill=fill, outline="")
-        glow_col = self._hex_blend(bdr_col, acc_col, t*0.9) if t > 0 else bdr_col
-        self.create_polygon(pts, smooth=True, fill="",
-                            outline=glow_col, width=1+int(t*2))
-
-        cy_off = 2 if self._pressed else 0
-        self.create_text(w//2, h//2+cy_off, text=self.text_str,
-                         fill=fg_col, font=self.font_obj, anchor="center")
-
-    def _on_press(self, _):
-        self._pressed = True
-        self._draw()
-        self.after(120, self._finish_press)
-
-    def _finish_press(self):
-        self._pressed = False
-        self._draw()
-        if self.command:
-            self.command()
-
-    def _on_release(self, _): pass
-    def _on_enter(self, _): self._animate_glow(1.0)
-    def _on_leave(self, _): self._animate_glow(0.0)
-
-    def _animate_glow(self, target, steps=8):
-        if self._anim_id:
-            self.after_cancel(self._anim_id)
-        delta = (target - self._glow) / steps
-        def step(n):
-            self._glow = max(0.0, min(1.0, self._glow + delta))
-            self._draw()
-            if n > 1:
-                self._anim_id = self.after(16, lambda: step(n-1))
-        step(steps)
+    def flash(self, color):
+        orig = list(self.result_lbl.color)
+        self.result_lbl.color = color
+        Clock.schedule_once(
+            lambda dt: setattr(self.result_lbl, 'color', orig), 0.15)
 
 
 # ══════════════════════════════════════════════════════
-#  TOGGLE SWITCH
+#  SETTINGS POPUP
 # ══════════════════════════════════════════════════════
-class ToggleSwitch(tk.Canvas):
-    W, H = 70, 26
+class SettingsPopup(Popup):
+    def __init__(self, calc_layout, **kwargs):
+        self._calc = calc_layout
+        t = calc_layout.theme
 
-    def __init__(self, parent, on_text="DARK", off_text="LIGHT",
-                 state=True, command=None, font_obj=None):
-        super().__init__(parent, width=self.W, height=self.H,
-                         bd=0, highlightthickness=0)
-        self.on_text   = on_text
-        self.off_text  = off_text
-        self._state    = state
-        self.command   = command
-        self.font_obj  = font_obj
-        self._knob_x   = self.W - 14 if state else 14
-        self.bind("<ButtonPress-1>", self._toggle)
-        self.bind("<Configure>", self._draw)
-        self._draw()
+        # ── content box
+        content = BoxLayout(
+            orientation="vertical",
+            padding=[dp(24), dp(20), dp(24), dp(20)],
+            spacing=dp(18))
 
-    def _draw(self, *_):
-        self.delete("all")
-        bg  = th("SETTINGS_BG")
-        col = th("TOGGLE_ON") if self._state else th("TOGGLE_OFF")
-        self.config(bg=bg)
-        r = self.H // 2
-        # track
-        self.create_oval(0, 0, self.H, self.H, fill=col, outline="")
-        self.create_oval(self.W-self.H, 0, self.W, self.H, fill=col, outline="")
-        self.create_rectangle(r, 0, self.W-r, self.H, fill=col, outline="")
-        # knob
-        kx = int(self._knob_x)
-        self.create_oval(kx-10, 3, kx+10, self.H-3, fill="#ffffff", outline="")
-        # label
-        lbl = self.on_text if self._state else self.off_text
-        lx  = kx - 20 if self._state else kx + 20
-        self.create_text(lx, self.H//2, text=lbl, fill="#ffffff",
-                         font=self.font_obj, anchor="center")
+        with content.canvas.before:
+            Color(*t["bg"])
+            self._pop_bg = RoundedRectangle(
+                pos=content.pos, size=content.size, radius=[dp(20)])
+        content.bind(
+            pos =lambda w,v: setattr(self._pop_bg,'pos',v),
+            size=lambda w,s: setattr(self._pop_bg,'size',s))
 
-    def _toggle(self, _):
-        self._state = not self._state
-        target = self.W - 14 if self._state else 14
-        self._animate_knob(target)
-        if self.command:
-            self.command(self._state)
+        # title row
+        title_row = BoxLayout(size_hint_y=None, height=dp(36))
+        title_lbl = Label(
+            text="Settings", font_size=sp(18), bold=True,
+            color=t["accent"], halign="left", valign="middle")
+        title_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        title_row.add_widget(title_lbl)
+        content.add_widget(title_row)
 
-    def _animate_knob(self, target, steps=8):
-        dist = (target - self._knob_x) / steps
-        def step(n):
-            self._knob_x += dist
-            self._draw()
-            if n > 1:
-                self.after(14, lambda: step(n-1))
-            else:
-                self._knob_x = target
-                self._draw()
-        step(steps)
+        # divider
+        div = Widget(size_hint_y=None, height=dp(1))
+        with div.canvas:
+            Color(*t["divider"])
+            Rectangle(size=div.size, pos=div.pos)
+        div.bind(pos =lambda w,v: self._upd_div(w),
+                 size=lambda w,s: self._upd_div(w))
+        self._div = div
+        content.add_widget(div)
 
-    def refresh_theme(self):
-        self._draw()
+        # dark mode row
+        mode_row = BoxLayout(size_hint_y=None, height=dp(52),
+                             spacing=dp(12))
 
+        # moon / sun icon label
+        icon_lbl = Label(
+            text="🌙  Dark Mode", font_size=sp(15),
+            color=t["txt_main"], halign="left", valign="middle")
+        icon_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        mode_row.add_widget(icon_lbl)
+        self._icon_lbl = icon_lbl
 
-# ══════════════════════════════════════════════════════
-#  SETTINGS PANEL (slide-in overlay)
-# ══════════════════════════════════════════════════════
-class SettingsPanel(tk.Frame):
-    def __init__(self, parent, calculator, **kw):
-        super().__init__(parent, **kw)
-        self.calc     = calculator
-        self._visible = False
-        self._anim_y  = -280
-        self._target  = 0
-        self._anim_id = None
-        self._build()
+        sw = Switch(active=calc_layout._dark_mode,
+                    size_hint_x=None, width=dp(80))
+        sw.bind(active=lambda w, val: self._on_toggle(val))
+        mode_row.add_widget(sw)
+        content.add_widget(mode_row)
 
-    def _build(self):
-        self.config(bg=th("SETTINGS_BG"),
-                    highlightbackground=th("ACCENT"),
-                    highlightthickness=1)
+        # DEG / RAD row
+        deg_row = BoxLayout(size_hint_y=None, height=dp(52),
+                            spacing=dp(12))
+        deg_lbl = Label(
+            text="📐  Angle Mode", font_size=sp(15),
+            color=t["txt_main"], halign="left", valign="middle")
+        deg_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        deg_row.add_widget(deg_lbl)
+        self._deg_lbl = deg_lbl
 
-        tk.Label(self, text="⚙   S E T T I N G S",
-                 font=self.calc.f_btn_sm,
-                 bg=th("SETTINGS_BG"), fg=th("ACCENT")).pack(pady=(16, 8))
+        deg_sw = Switch(active=calc_layout._deg_mode,
+                        size_hint_x=None, width=dp(80))
+        deg_sw.bind(active=lambda w, val: self._on_deg_toggle(val))
+        deg_row.add_widget(deg_sw)
+        content.add_widget(deg_row)
 
-        tk.Frame(self, bg=th("SEP"), height=1).pack(fill="x", padx=16)
+        # DEG label
+        self._deg_state_lbl = Label(
+            text="DEG (ON)  =  degrees   |   RAD (OFF)  =  radians",
+            font_size=sp(10), color=t["txt_dim"],
+            halign="center", valign="middle",
+            size_hint_y=None, height=dp(20))
+        self._deg_state_lbl.bind(
+            size=lambda w,s: setattr(w,'text_size',s))
+        content.add_widget(self._deg_state_lbl)
 
-        row = tk.Frame(self, bg=th("SETTINGS_BG"))
-        row.pack(fill="x", padx=22, pady=14)
-        tk.Label(row, text="Mode", font=self.calc.f_label,
-                 bg=th("SETTINGS_BG"), fg=th("TXT_MAIN")).pack(side="left")
+        # close button
+        close_btn = Button(
+            text="  Close",
+            font_size=sp(14), bold=True,
+            size_hint_y=None, height=dp(48),
+            background_normal="",
+            background_color=(0,0,0,0),
+            color=t["txt_eq"])
+        with close_btn.canvas.before:
+            Color(*t["btn_eq"])
+            self._close_rect = RoundedRectangle(
+                pos=close_btn.pos, size=close_btn.size,
+                radius=[dp(10)])
+        close_btn.bind(
+            pos =lambda w,v: setattr(self._close_rect,'pos',v),
+            size=lambda w,s: setattr(self._close_rect,'size',s))
+        close_btn.bind(on_press=self.dismiss)
+        content.add_widget(close_btn)
 
-        self._toggle = ToggleSwitch(
-            row, on_text="DARK", off_text="LIGHT",
-            state=self.calc._dark_mode,
-            command=self.calc._switch_theme,
-            font_obj=self.calc.f_label)
-        self._toggle.pack(side="right")
+        super().__init__(
+            title="", content=content,
+            size_hint=(0.88, None), height=dp(360),
+            background="",
+            background_color=(0, 0, 0, 0.5),
+            separator_height=0,
+            **kwargs)
 
-        tk.Frame(self, bg=th("SEP"), height=1).pack(fill="x", padx=16)
+    def _upd_div(self, w):
+        w.canvas.clear()
+        with w.canvas:
+            Color(*self._calc.theme["divider"])
+            Rectangle(size=w.size, pos=w.pos)
 
-        close_btn = AnimButton(
-            self, text="✕  Close", command=self.hide,
-            bg_key="BTN_DARK", fg_key="ACCENT2",
-            radius=8, font_obj=self.calc.f_btn_xs,
-            width=120, height=36)
-        close_btn.pack(pady=14)
-        self._close_btn = close_btn
+    def _on_toggle(self, val):
+        self._calc._switch_theme(val)
+        t = self._calc.theme
+        self._icon_lbl.text  = "🌙  Dark Mode" if val else "☀️  Light Mode"
+        self._icon_lbl.color = t["txt_main"]
+        self._deg_lbl.color  = t["txt_main"]
+        self._deg_state_lbl.color = t["txt_dim"]
+        with self.content.canvas.before:
+            Color(*t["bg"])
 
-    def refresh_theme(self):
-        for w in self.winfo_children():
-            w.destroy()
-        self._build()
-
-    def show(self):
-        if self._visible:
-            return
-        self._visible = True
-        self._anim_y  = -280
-        self._target  = 55
-        self.place(x=8, y=int(self._anim_y), width=348)
-        self.lift()
-        self._animate()
-
-    def hide(self):
-        if not self._visible:
-            return
-        self._target = -280
-        self._animate(on_done=self._do_hide)
-
-    def _do_hide(self):
-        self._visible = False
-        self.place_forget()
-
-    def _animate(self, on_done=None):
-        if self._anim_id:
-            self.after_cancel(self._anim_id)
-        dist = self._target - self._anim_y
-        if abs(dist) < 1.5:
-            self._anim_y = self._target
-            self.place(x=8, y=int(self._anim_y), width=348)
-            if on_done:
-                on_done()
-            return
-        self._anim_y += dist * 0.2
-        self.place(x=8, y=int(self._anim_y), width=348)
-        self._anim_id = self.after(12, lambda: self._animate(on_done))
+    def _on_deg_toggle(self, val):
+        self._calc._deg_mode = val
+        self._calc._mode_lbl.text = "DEG" if val else "RAD"
 
 
 # ══════════════════════════════════════════════════════
-#  MAIN CALCULATOR
+#  MAIN LAYOUT
 # ══════════════════════════════════════════════════════
-class ScientificCalculator(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("✦ SCIENTIFIC CALC")
-        self.resizable(False, False)
+class CalculatorLayout(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(
+            orientation="vertical",
+            spacing=dp(8),
+            padding=[dp(10), dp(10), dp(10), dp(10)],
+            **kwargs)
 
         self._expression  = ""
         self._just_result = False
-        self._deg_mode    = True
         self._last_answer = None
+        self._deg_mode    = True
         self._dark_mode   = True
+        self.theme        = dict(THEMES["dark"])
         self._all_buttons = []
 
-        self._build_fonts()
-
-        self._root_frame = tk.Frame(self)
-        self._root_frame.pack()
+        with self.canvas.before:
+            self._bg_col  = Color(*self.theme["bg"])
+            self._bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._upd_bg, size=self._upd_bg)
 
         self._build_ui()
-        self._start_cursor_blink()
 
-    # ── fonts ───────────────────────────────────────
-    def _build_fonts(self):
-        self.f_display = font.Font(family="Courier New", size=28, weight="bold")
-        self.f_expr    = font.Font(family="Courier New", size=12)
-        self.f_btn_lg  = font.Font(family="Courier New", size=15, weight="bold")
-        self.f_btn_sm  = font.Font(family="Courier New", size=11, weight="bold")
-        self.f_btn_xs  = font.Font(family="Courier New", size=9,  weight="bold")
-        self.f_label   = font.Font(family="Courier New", size=9)
+    def _upd_bg(self, *_):
+        self._bg_rect.pos  = self.pos
+        self._bg_rect.size = self.size
 
-    # ── UI ──────────────────────────────────────────
+    # ── UI ────────────────────────────────────────────
     def _build_ui(self):
-        panel = th("PANEL")
-        bg    = th("BG")
+        t = self.theme
 
-        self.configure(bg=bg)
-        self._root_frame.config(bg=bg)
+        # ── top bar ─────────────────────────────────
+        top = BoxLayout(
+            size_hint_y=None, height=dp(48),
+            spacing=dp(8), padding=[dp(4), 0, dp(4), 0])
 
-        outer = tk.Frame(self._root_frame, bg=panel, padx=16, pady=16)
-        outer.pack()
-        self._outer = outer
+        self._title_lbl = Label(
+            text="Scientific Calculator",
+            font_size=sp(15), bold=True,
+            color=t["accent"],
+            halign="left", valign="middle")
+        self._title_lbl.bind(
+            size=lambda w,s: setattr(w,'text_size',s))
+        top.add_widget(self._title_lbl)
 
-        # ── title bar
-        title_f = tk.Frame(outer, bg=panel)
-        title_f.pack(fill="x", pady=(0, 8))
+        self._mode_lbl = Label(
+            text="DEG", font_size=sp(12),
+            color=t["accent3"],
+            halign="right", valign="middle",
+            size_hint_x=None, width=dp(40))
+        top.add_widget(self._mode_lbl)
 
-        self._title_lbl = tk.Label(
-            title_f, text="✦ SCIENTIFIC",
-            font=font.Font(family="Courier New", size=11, weight="bold"),
-            bg=panel, fg=th("ACCENT"))
-        self._title_lbl.pack(side="left")
+        # settings button — text label so it's always visible
+        settings_btn = Button(
+            text="Settings",
+            font_size=sp(12), bold=True,
+            size_hint_x=None, width=dp(76),
+            background_normal="",
+            background_color=(0,0,0,0),
+            color=t["txt_eq"])
+        with settings_btn.canvas.before:
+            self._set_btn_col = Color(*t["btn_eq"])
+            self._set_btn_rect = RoundedRectangle(
+                pos=settings_btn.pos,
+                size=settings_btn.size,
+                radius=[dp(8)])
+        settings_btn.bind(
+            pos =lambda w,v: setattr(self._set_btn_rect,'pos',v),
+            size=lambda w,s: setattr(self._set_btn_rect,'size',s))
+        settings_btn.bind(on_press=lambda x: self._open_settings())
+        top.add_widget(settings_btn)
+        self._settings_btn = settings_btn
 
-        gear_btn = AnimButton(
-            title_f, text="⚙", command=self._open_settings,
-            bg_key="BTN_DARK", fg_key="ACCENT",
-            radius=6, font_obj=self.f_btn_sm, width=30, height=22)
-        gear_btn.pack(side="right", padx=(4, 0))
-        self._all_buttons.append(gear_btn)
+        self.add_widget(top)
 
-        self._mode_lbl = tk.Label(
-            title_f, text="DEG", font=self.f_label,
-            bg=panel, fg=th("ACCENT3"))
-        self._mode_lbl.pack(side="right", padx=6)
+        # ── display ─────────────────────────────────
+        self._display = DisplayWidget(t)
+        self.add_widget(self._display)
 
-        self._ans_lbl = tk.Label(
-            title_f, text="ANS: —", font=self.f_label,
-            bg=panel, fg=th("TXT_DIM"))
-        self._ans_lbl.pack(side="right", padx=6)
+        # ── thin divider ────────────────────────────
+        div = Widget(size_hint_y=None, height=dp(1))
+        with div.canvas:
+            self._div_col  = Color(*t["divider"])
+            self._div_rect = Rectangle(pos=div.pos, size=div.size)
+        div.bind(
+            pos =lambda w,v: setattr(self._div_rect,'pos',v),
+            size=lambda w,s: setattr(self._div_rect,'size',s))
+        self.add_widget(div)
 
-        # ── display
-        self._disp_frame = tk.Frame(
-            outer, bg=th("DISPLAY_BG"),
-            highlightbackground=th("ACCENT"), highlightthickness=1)
-        self._disp_frame.pack(fill="x", pady=(0, 10))
+        # ── button grid ─────────────────────────────
+        grid = GridLayout(cols=5, spacing=dp(6))
+        self._grid = grid
+        self._build_buttons(grid)
+        self.add_widget(grid)
 
-        self.expr_var = tk.StringVar(value="")
-        self._expr_lbl = tk.Label(
-            self._disp_frame, textvariable=self.expr_var,
-            font=self.f_expr, anchor="e", padx=10, height=1,
-            bg=th("DISPLAY_BG"), fg=th("TXT_DIM"))
-        self._expr_lbl.pack(fill="x", pady=(6, 0))
+    # ── buttons ───────────────────────────────────────
+    def _mk(self, parent, text, bg_k, fg_k, action,
+            h=dp(56), font_size=None):
+        t   = self.theme
+        btn = CalcButton(
+            bg_color     = t[bg_k],
+            fg_color     = t[fg_k],
+            accent_color = t["accent"],
+            text         = text,
+            size_hint    = (1, None),
+            height       = h,
+            font_size    = sp(font_size or 14))
+        btn._bg_key = bg_k
+        btn._fg_key = fg_k
+        btn.bind(on_press=lambda x: action())
+        parent.add_widget(btn)
+        self._all_buttons.append(btn)
+        return btn
 
-        result_row = tk.Frame(self._disp_frame, bg=th("DISPLAY_BG"))
-        result_row.pack(fill="x")
-        self._result_row = result_row
+    def _build_buttons(self, g):
+        P  = lambda v: lambda: self._press(v)
+        h  = dp(54)
+        hb = dp(54)   # same height for all rows
 
-        self.result_var = tk.StringVar(value="0")
-        self._result_lbl = tk.Label(
-            result_row, textvariable=self.result_var,
-            font=self.f_display, anchor="e", padx=10,
-            bg=th("DISPLAY_BG"), fg=th("TXT_MAIN"))
-        self._result_lbl.pack(side="left", fill="x", expand=True)
+        # ── row 0: utilities
+        self._mk(g,"DEG/RAD","btn_func","txt_func", self._toggle_deg, h=hb, font_size=11)
+        self._mk(g,"(",      "btn_op",  "txt_op",   P("("),  h=hb)
+        self._mk(g,")",      "btn_op",  "txt_op",   P(")"),  h=hb)
+        self._mk(g,"⌫",      "btn_func","txt_clear", self._backspace, h=hb, font_size=18)
+        self._mk(g,"AC",     "btn_clear","txt_clear", self._clear_all, h=hb)
 
-        self.cursor_lbl = tk.Label(
-            result_row, text="▋", font=self.f_display,
-            bg=th("DISPLAY_BG"), fg=th("ACCENT"))
-        self.cursor_lbl.pack(side="right", padx=4)
+        # ── row 1: trig
+        self._mk(g,"sin",  "btn_func","txt_func", P("sin("), h=hb, font_size=13)
+        self._mk(g,"cos",  "btn_func","txt_func", P("cos("), h=hb, font_size=13)
+        self._mk(g,"tan",  "btn_func","txt_func", P("tan("), h=hb, font_size=13)
+        self._mk(g,"π",    "btn_func","txt_op",   P("π"),    h=hb, font_size=16)
+        self._mk(g,"e",    "btn_func","txt_op",   P("e"),    h=hb, font_size=16)
 
-        # ── divider
-        self._divider = tk.Frame(outer, bg=th("ACCENT"), height=2)
-        self._divider.pack(fill="x", pady=(0, 10))
+        # ── row 2: inverse trig + power
+        self._mk(g,"asin", "btn_func","txt_func", P("asin("), h=hb, font_size=11)
+        self._mk(g,"acos", "btn_func","txt_func", P("acos("), h=hb, font_size=11)
+        self._mk(g,"atan", "btn_func","txt_func", P("atan("), h=hb, font_size=11)
+        self._mk(g,"√",    "btn_func","txt_op",   P("sqrt("),h=hb, font_size=18)
+        self._mk(g,"x²",   "btn_func","txt_op",   P("**2"),  h=hb, font_size=13)
 
-        # ── buttons
-        btn_frame = tk.Frame(outer, bg=panel)
-        btn_frame.pack()
-        self._btn_frame = btn_frame
+        # ── row 3: log + misc
+        self._mk(g,"log",  "btn_func","txt_func", P("log("), h=hb, font_size=13)
+        self._mk(g,"ln",   "btn_func","txt_func", P("ln("),  h=hb, font_size=13)
+        self._mk(g,"xʸ",   "btn_op",  "txt_op",   P("**"),   h=hb, font_size=13)
+        self._mk(g,"1/x",  "btn_func","txt_func", P("1/("),  h=hb, font_size=11)
+        self._mk(g,"|x|",  "btn_func","txt_func", P("abs("), h=hb, font_size=11)
 
-        self._make_buttons(btn_frame)
+        # ── row 4: ANS + 7 8 9 ÷
+        self._mk(g,"ANS",  "btn_op",  "txt_op",   self._press_ans, h=hb, font_size=12)
+        self._mk(g,"7",    "btn_num", "txt_num",  P("7"),    h=hb, font_size=18)
+        self._mk(g,"8",    "btn_num", "txt_num",  P("8"),    h=hb, font_size=18)
+        self._mk(g,"9",    "btn_num", "txt_num",  P("9"),    h=hb, font_size=18)
+        self._mk(g,"÷",    "btn_op",  "txt_op",   P("/"),    h=hb, font_size=20)
 
-        # ── settings overlay
-        self._settings = SettingsPanel(
-            self._root_frame, self,
-            bg=th("SETTINGS_BG"), highlightthickness=1)
+        # ── row 5: % + 4 5 6 ×
+        self._mk(g,"%",    "btn_op",  "txt_op",   P("%"),    h=hb, font_size=18)
+        self._mk(g,"4",    "btn_num", "txt_num",  P("4"),    h=hb, font_size=18)
+        self._mk(g,"5",    "btn_num", "txt_num",  P("5"),    h=hb, font_size=18)
+        self._mk(g,"6",    "btn_num", "txt_num",  P("6"),    h=hb, font_size=18)
+        self._mk(g,"×",    "btn_op",  "txt_op",   P("*"),    h=hb, font_size=20)
 
-    # ── button factory ──────────────────────────────
-    def _btn(self, parent, text, cmd, row, col,
-             bg_key="BTN_DARK", fg_key="TXT_MAIN", fnt=None,
-             rowspan=1, colspan=1, w=70, h=50):
-        fnt = fnt or self.f_btn_sm
-        b = AnimButton(parent, text=text, command=cmd,
-                       bg_key=bg_key, fg_key=fg_key,
-                       radius=8, font_obj=fnt, width=w, height=h)
-        b.grid(row=row, column=col, rowspan=rowspan, columnspan=colspan,
-               padx=3, pady=3, sticky="nsew")
-        self._all_buttons.append(b)
-        return b
+        # ── row 6: ! + 1 2 3 −
+        self._mk(g,"!",    "btn_op",  "txt_op",   P("!"),    h=hb, font_size=18)
+        self._mk(g,"1",    "btn_num", "txt_num",  P("1"),    h=hb, font_size=18)
+        self._mk(g,"2",    "btn_num", "txt_num",  P("2"),    h=hb, font_size=18)
+        self._mk(g,"3",    "btn_num", "txt_num",  P("3"),    h=hb, font_size=18)
+        self._mk(g,"−",    "btn_op",  "txt_op",   P("-"),    h=hb, font_size=22)
 
-    def _make_buttons(self, f):
-        P = lambda v: lambda: self._press(v)
-        B = self._btn
+        # ── row 7: 0  00  .  +  =
+        self._mk(g,"0",    "btn_num", "txt_num",  P("0"),    h=hb, font_size=18)
+        self._mk(g,"00",   "btn_num", "txt_num",  P("00"),   h=hb, font_size=14)
+        self._mk(g,".",    "btn_num", "txt_num",  P("."),    h=hb, font_size=22)
+        self._mk(g,"+",    "btn_op",  "txt_op",   P("+"),    h=hb, font_size=22)
+        self._mk(g,"=",    "btn_eq",  "txt_eq",   self._evaluate, h=hb, font_size=22)
 
-        # row 0 – top utilities
-        B(f,"DEG/RAD", self._toggle_deg,  0,0, bg_key="BTN_DARK", fg_key="ACCENT3", fnt=self.f_btn_xs)
-        B(f,"(",        P("("),            0,1, bg_key="BTN_OP",   fg_key="TXT_OP",  fnt=self.f_btn_lg)
-        B(f,")",        P(")"),            0,2, bg_key="BTN_OP",   fg_key="TXT_OP",  fnt=self.f_btn_lg)
-        B(f,"⌫",        self._backspace,   0,3, bg_key="BTN_DARK", fg_key="ACCENT2", fnt=self.f_btn_lg)
-        B(f,"AC",       self._clear_all,   0,4, bg_key="BTN_DARK", fg_key="ACCENT2", fnt=self.f_btn_lg)
+    # ── theme ─────────────────────────────────────────
+    def _switch_theme(self, dark):
+        self._dark_mode = dark
+        self.theme = dict(THEMES["dark"] if dark else THEMES["light"])
+        t = self.theme
 
-        # row 1 – trig
-        B(f,"sin",  P("sin("),  1,0, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"cos",  P("cos("),  1,1, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"tan",  P("tan("),  1,2, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"π",    P("π"),     1,3, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_sm)
-        B(f,"e",    P("e"),     1,4, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_sm)
+        self._bg_col.rgba          = t["bg"]
+        self._div_col.rgba         = t["divider"]
+        self._title_lbl.color      = t["accent"]
+        self._mode_lbl.color       = t["accent3"]
+        self._set_btn_col.rgba     = t["btn_eq"]
+        self._settings_btn.color   = t["txt_eq"]
 
-        # row 2 – inv trig + power
-        B(f,"asin", P("asin("), 2,0, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"acos", P("acos("), 2,1, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"atan", P("atan("), 2,2, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"√",    P("sqrt("), 2,3, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_sm)
-        B(f,"x²",   P("**2"),   2,4, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_sm)
+        self._display.update_theme(t)
 
-        # row 3 – log + misc
-        B(f,"log",  P("log("),  3,0, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"ln",   P("ln("),   3,1, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"xʸ",   P("**"),    3,2, bg_key="BTN_OP",   fg_key="TXT_OP",   fnt=self.f_btn_sm)
-        B(f,"1/x",  P("1/("),   3,3, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-        B(f,"|x|",  P("abs("),  3,4, bg_key="BTN_FUNC", fg_key="TXT_FUNC", fnt=self.f_btn_xs)
-
-        # row 4 – ANS + 789 ÷
-        B(f,"ANS", self._press_ans, 4,0, bg_key="BTN_OP", fg_key="ACCENT",  fnt=self.f_btn_xs)
-        B(f,"7",   P("7"),          4,1, fnt=self.f_btn_lg)
-        B(f,"8",   P("8"),          4,2, fnt=self.f_btn_lg)
-        B(f,"9",   P("9"),          4,3, fnt=self.f_btn_lg)
-        B(f,"÷",   P("/"),          4,4, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-
-        # row 5 – % + 456 ×
-        B(f,"%",   P("%"),  5,0, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-        B(f,"4",   P("4"),  5,1, fnt=self.f_btn_lg)
-        B(f,"5",   P("5"),  5,2, fnt=self.f_btn_lg)
-        B(f,"6",   P("6"),  5,3, fnt=self.f_btn_lg)
-        B(f,"×",   P("*"),  5,4, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-
-        # row 6 – ! + 123 −
-        B(f,"!",   P("!"),  6,0, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-        B(f,"1",   P("1"),  6,1, fnt=self.f_btn_lg)
-        B(f,"2",   P("2"),  6,2, fnt=self.f_btn_lg)
-        B(f,"3",   P("3"),  6,3, fnt=self.f_btn_lg)
-        B(f,"−",   P("-"),  6,4, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-
-        # tall = button (rows 6-7, col 5)
-        eq_btn = AnimButton(f, text="=", command=self._evaluate,
-                            bg_key="BTN_EQ", fg_key="TXT_EQ",
-                            radius=8, font_obj=self.f_btn_lg,
-                            width=70, height=110)
-        eq_btn.grid(row=6, column=5, rowspan=2, padx=3, pady=3, sticky="nsew")
-        self._all_buttons.append(eq_btn)
-
-        # row 7 – 0 00 . +
-        B(f,"0",  P("0"),  7,0, fnt=self.f_btn_lg)
-        B(f,"00", P("00"), 7,1, fnt=self.f_btn_sm)
-        B(f,".",  P("."),  7,2, fnt=self.f_btn_lg)
-        B(f,"+",  P("+"),  7,3, bg_key="BTN_OP", fg_key="TXT_OP",  fnt=self.f_btn_lg)
-
-    # ── theme switching ─────────────────────────────
-    def _switch_theme(self, dark_state):
-        global _app_theme
-        self._dark_mode = dark_state
-        _app_theme.update(THEMES["dark"] if dark_state else THEMES["light"])
-        self._apply_theme_colors()
-        self._settings.refresh_theme()
-
-    def _apply_theme_colors(self):
-        bg   = th("BG")
-        panel= th("PANEL")
-        disp = th("DISPLAY_BG")
-        acc  = th("ACCENT")
-        acc3 = th("ACCENT3")
-        tm   = th("TXT_MAIN")
-        tdim = th("TXT_DIM")
-
-        self.configure(bg=bg)
-        self._root_frame.config(bg=bg)
-        self._outer.config(bg=panel)
-
-        # title row widgets
-        for w in self._outer.winfo_children():
-            try:
-                w.config(bg=panel)
-            except Exception:
-                pass
-
-        self._title_lbl.config(fg=acc,  bg=panel)
-        self._mode_lbl.config( fg=acc3, bg=panel)
-        self._ans_lbl.config(  fg=tdim, bg=panel)
-
-        self._disp_frame.config(bg=disp,
-                                highlightbackground=acc,
-                                highlightthickness=1)
-        self._expr_lbl.config(  fg=tdim, bg=disp)
-        self._result_row.config(bg=disp)
-        self._result_lbl.config(fg=tm,   bg=disp)
-        self.cursor_lbl.config( fg=acc,  bg=disp)
-        self._divider.config(   bg=acc)
-        self._btn_frame.config( bg=panel)
-
-        for b in self._all_buttons:
-            b.refresh_theme()
+        for btn in self._all_buttons:
+            btn.update_theme(
+                bg     = t[btn._bg_key],
+                fg     = t[btn._fg_key],
+                accent = t["accent"])
 
     def _open_settings(self):
-        if self._settings._visible:
-            self._settings.hide()
-        else:
-            self._settings.show()
+        SettingsPopup(self).open()
 
-    # ── cursor blink ────────────────────────────────
-    def _start_cursor_blink(self):
-        self._cursor_on = True
-        self._blink()
-
-    def _blink(self):
-        self._cursor_on = not self._cursor_on
-        try:
-            self.cursor_lbl.config(
-                fg=th("ACCENT") if self._cursor_on else th("DISPLAY_BG"))
-        except Exception:
-            pass
-        self.after(530, self._blink)
-
-    # ── input handling ──────────────────────────────
+    # ── input ─────────────────────────────────────────
     def _press(self, val):
-        if self._just_result and val not in ("+", "-", "*", "/", "**", "%"):
+        if self._just_result and val not in ("+","-","*","/","**","%"):
             self._expression = ""
         self._just_result = False
         self._expression += str(val)
@@ -586,77 +555,58 @@ class ScientificCalculator(tk.Tk):
     def _clear_all(self):
         self._expression  = ""
         self._just_result = False
-        self.result_var.set("0")
-        self.expr_var.set("")
-        self._flash(th("ACCENT2"))
+        self._display.expr_lbl.text   = ""
+        self._display.result_lbl.text = "0"
+        self._display.flash(self.theme["accent2"])
 
     def _toggle_deg(self):
         self._deg_mode = not self._deg_mode
-        self._mode_lbl.config(text="DEG" if self._deg_mode else "RAD")
-        self._flash(th("ACCENT3"))
+        self._mode_lbl.text = "DEG" if self._deg_mode else "RAD"
 
     def _update_display(self):
         d = (self._expression
-             .replace("*", "×").replace("/", "÷").replace("-", "−"))
-        self.expr_var.set(d)
-        self.result_var.set(d or "0")
+             .replace("*","×").replace("/","÷").replace("-","−"))
+        self._display.expr_lbl.text   = d
+        self._display.result_lbl.text = d or "0"
 
-    # ── evaluate ─────────────────────────────────────
+    # ── evaluate ──────────────────────────────────────
     def _evaluate(self):
         expr = self._expression
         if not expr:
             return
         try:
             result = self._safe_eval(expr)
-            show = (self._expression
-                    .replace("*","×").replace("/","÷").replace("-","−"))
-            self.expr_var.set(show)
+            show = (expr.replace("*","×")
+                        .replace("/","÷")
+                        .replace("-","−"))
+            self._display.expr_lbl.text = show
             if (isinstance(result, float)
-                    and result == int(result) and abs(result) < 1e15):
+                    and result == int(result)
+                    and abs(result) < 1e15):
                 result = int(result)
-            self.result_var.set(str(result))
-            self._last_answer = result
-            self._ans_lbl.config(text=f"ANS: {result}")
-            self._expression  = str(result)
-            self._just_result = True
-            self._flash(th("ACCENT"))
+            self._display.result_lbl.text = str(result)
+            self._last_answer  = result
+            self._display.ans_lbl.text = f"ANS  =  {result}"
+            self._expression   = str(result)
+            self._just_result  = True
+            self._display.flash(self.theme["accent"])
         except Exception:
-            self.result_var.set("ERROR")
-            self._flash(th("ACCENT2"))
+            self._display.result_lbl.text = "Error"
+            self._display.flash(self.theme["accent2"])
             self._expression = ""
 
-    def _flash(self, color, steps=10):
-        orig = th("ACCENT")
-        def pulse(n, col):
-            try:
-                self.cursor_lbl.config(fg=col)
-            except Exception:
-                return
-            if n > 0:
-                nxt = color if n % 2 == 0 else orig
-                self.after(60, lambda: pulse(n-1, nxt))
-            else:
-                try:
-                    self.cursor_lbl.config(fg=orig)
-                except Exception:
-                    pass
-        pulse(steps, color)
-
-    # ── safe eval ────────────────────────────────────
+    # ── safe eval ─────────────────────────────────────
     def _safe_eval(self, expr):
         expr = expr.replace("π", str(math.pi))
-        expr = expr.replace("÷", "/").replace("×", "*").replace("−", "-")
-        # standalone e  (not part of a function name)
+        expr = expr.replace("÷","/").replace("×","*").replace("−","-")
         expr = re.sub(r'(?<![a-zA-Z])e(?![a-zA-Z])', str(math.e), expr)
 
-        # factorial
         def fact(m):
             return str(math.factorial(abs(int(m.group(1)))))
         expr = re.sub(r'(\d+)!', fact, expr)
 
-        # deg trig wrapping
         if self._deg_mode:
-            for fn in ("sin", "cos", "tan"):
+            for fn in ("sin","cos","tan"):
                 expr = re.sub(rf'\b{fn}\(', f'_d_{fn}(', expr)
 
         def _d_sin(x): return math.sin(math.radians(x))
@@ -668,13 +618,20 @@ class ScientificCalculator(tk.Tk):
             "sin":  math.sin,  "cos": math.cos,  "tan": math.tan,
             "asin": math.asin, "acos":math.acos, "atan":math.atan,
             "sqrt": math.sqrt, "log": math.log10,"ln":  math.log,
-            "abs":  abs,       "pow": pow,
-            "pi":   math.pi,
-            "_d_sin": _d_sin, "_d_cos": _d_cos, "_d_tan": _d_tan,
+            "abs":  abs,       "pow": pow,        "pi":  math.pi,
+            "_d_sin":_d_sin, "_d_cos":_d_cos, "_d_tan":_d_tan,
         }
         return eval(expr, ns)
 
 
+# ══════════════════════════════════════════════════════
+#  APP
+# ══════════════════════════════════════════════════════
+class ScientificCalculatorApp(App):
+    def build(self):
+        self.title = "Scientific Calculator"
+        return CalculatorLayout()
+
+
 if __name__ == "__main__":
-    app = ScientificCalculator()
-    app.mainloop()
+    ScientificCalculatorApp().run()
