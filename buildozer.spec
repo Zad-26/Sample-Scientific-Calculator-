@@ -9,7 +9,6 @@ source.include_exts = py,png,jpg,kv,atlas
 
 version = 1.0
 
-# Kivy + dependencies
 requirements = python3,kivy==2.3.0
 
 orientation = portrait
@@ -18,10 +17,18 @@ fullscreen = 0
 android.permissions = INTERNET
 android.api = 33
 android.minapi = 21
-android.ndk = 25b
+android.ndk = 25.2.9519653
 android.sdk = 33
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
+
+# Tell Buildozer to use the pre-installed SDK/NDK
+android.sdk_path = /home/runner/android-sdk
+android.ndk_path = /home/runner/android-sdk/ndk/25.2.9519653
+android.ant_path = /usr/bin
+
+# Skip downloading SDK/NDK (we install them manually)
+android.accept_sdk_license = True
 
 [buildozer]
 log_level = 2
