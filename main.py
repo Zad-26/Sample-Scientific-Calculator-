@@ -18,8 +18,11 @@ from kivy.graphics import Color, RoundedRectangle, Rectangle, Line
 from kivy.metrics import dp, sp
 from kivy.core.window import Window
 from kivy.clock import Clock
+from kivy.utils import platform
 
-Window.size = (400, 800)
+# Only set fixed size on desktop for testing; on Android use full screen
+if platform not in ("android", "ios"):
+    Window.size = (400, 800)
 
 # ══════════════════════════════════════════════════════
 #  THEMES
