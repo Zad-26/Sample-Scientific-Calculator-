@@ -42,17 +42,19 @@ jobs:
           ndk-version: r25b
           add-to-path: true
 
-      - name: Setup SDK and NDK in Buildozer folders
+      - name: Setup SDK and NDK
         run: |
           mkdir -p $HOME/.buildozer/android/platform
 
-          # Copy NDK as real directory
+          # ── NDK ──────────────────────────────────────
           NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
           NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          echo "Copying NDK from $NDK_SRC"
           cp -r "$NDK_SRC" "$NDK_DST"
           echo "NDK is real dir: $(test -d $NDK_DST && echo YES || echo NO)"
+          ls "$NDK_DST" | head -3
 
-          # Setup SDK
+          # ── SDK ──────────────────────────────────────
           SDK_DST="$HOME/.buildozer/android/platform/android-sdk"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             --licenses > /dev/null 2>&1 || true
@@ -64,25 +66,28 @@ jobs:
           echo "SDK is real dir: $(test -d $SDK_DST && echo YES || echo NO)"
           find "$SDK_DST/build-tools" -name "aidl" 2>/dev/null
 
-      - name: Patch Buildozer NDK check (MUST run after any cache restore)
+      - name: Completely replace NDK install method in Buildozer
         run: |
+          echo "Running patch script..."
+          python3 patch_buildozer.py
+          echo "Patch done!"
+
+      - name: Verify patch and paths
+        run: |
+          NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          echo "NDK is dir: $(test -d $NDK_DIR && echo YES || echo NO)"
+          echo "SDK is dir: $(test -d $SDK_DIR && echo YES || echo NO)"
+          echo "aidl: $(find $SDK_DIR/build-tools -name aidl 2>/dev/null)"
+
           ANDROID_PY=$(python3 -c "import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
-          echo "Patching: $ANDROID_PY"
-
-          # Replace file_exists with os.path.isdir - works on real directories
-          sed -i 's/self\.buildozer\.file_exists(ndk_dir)/os.path.isdir(ndk_dir)/g' "$ANDROID_PY"
-
-          # Verify
-          echo "After patch:"
-          grep -n "ndk_dir" "$ANDROID_PY" | head -10
+          echo "Patched method preview:"
+          grep -A 10 "def _install_android_ndk" "$ANDROID_PY"
 
       - name: Build APK
         run: |
           NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "NDK exists: $(test -d $NDK_DIR && echo YES || echo NO)"
-          echo "SDK exists: $(test -d $SDK_DIR && echo YES || echo NO)"
 
           export ANDROIDSDK="$SDK_DIR"
           export ANDROIDNDK="$NDK_DIR"
