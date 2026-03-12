@@ -44,9 +44,7 @@ jobs:
         run: |
           mkdir -p $HOME/.buildozer/android/platform
 
-          echo "NDK source path: $NDK_PATH"
-          ls "$NDK_PATH" | head -5
-
+          # ── NDK ──────────────────────────────────────
           NDK_DST1="$HOME/.buildozer/android/platform/android-ndk-r25b"
           NDK_DST2="$HOME/.buildozer/android/platform/android-ndk-r25.2.9519653"
           cp -r "$NDK_PATH" "$NDK_DST1"
@@ -54,39 +52,44 @@ jobs:
           echo "NDK1 exists: $(test -d $NDK_DST1 && echo YES || echo NO)"
           echo "NDK2 exists: $(test -d $NDK_DST2 && echo YES || echo NO)"
 
+          # ── SDK ──────────────────────────────────────
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | $SDKMANAGER --licenses > /dev/null 2>&1 || true
+
+          # Install all needed SDK packages including legacy tools
+          $SDKMANAGER \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "platform-tools" \
+            "tools"
+
+          # Create legacy tools/bin/sdkmanager wrapper that Buildozer expects
+          mkdir -p "$ANDROID_HOME/tools/bin"
+          cp "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager" 2>/dev/null || \
+            ln -sf "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager"
+
+          # Copy SDK
           SDK_DST="$HOME/.buildozer/android/platform/android-sdk"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.2" "platform-tools"
           cp -r "$ANDROID_HOME" "$SDK_DST"
           echo "SDK exists: $(test -d $SDK_DST && echo YES || echo NO)"
+
+          # Verify sdkmanager in expected location
+          echo "sdkmanager at tools/bin: $(test -f $SDK_DST/tools/bin/sdkmanager && echo YES || echo NO)"
           find "$SDK_DST/build-tools" -name "aidl" 2>/dev/null
 
       - name: Patch Buildozer NDK method
         run: python3 patch_buildozer.py
 
-      - name: Verify patch
-        run: |
-          ANDROID_PY=$(python3 -c "import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
-          echo "Patched method preview:"
-          grep -A 10 "def _install_android_ndk" "$ANDROID_PY"
-          echo "NDK dirs:"
-          ls $HOME/.buildozer/android/platform/ | grep ndk
-
       - name: Build APK
-        env:
-          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-          NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
-
-          echo "NDK exists: $(test -d $NDK_DIR && echo YES || echo NO)"
-          echo "SDK exists: $(test -d $SDK_DIR && echo YES || echo NO)"
+          NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25.2.9519653"
 
           export ANDROIDSDK="$SDK_DIR"
           export ANDROIDNDK="$NDK_DIR"
           export ANDROIDAPI=33
           export ANDROIDMINAPI=21
-          export PATH="$SDK_DIR/build-tools/33.0.2:$SDK_DIR/platform-tools:$PATH"
+          export PATH="$SDK_DIR/build-tools/33.0.2:$SDK_DIR/platform-tools:$SDK_DIR/tools/bin:$PATH"
 
           buildozer -v android debug 2>&1 | tee build.log
 
