@@ -7,7 +7,7 @@ package.domain = org.zad26
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 
-version = 1.0
+version = 1.1
 
 requirements = python3,kivy==2.3.0
 
