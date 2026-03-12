@@ -24,11 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y \
-            python3-pip build-essential git unzip zip \
-            autoconf libtool pkg-config cmake \
-            zlib1g-dev libffi-dev libssl-dev patch wget \
-            libltdl-dev
+          sudo apt-get install -y python3-pip build-essential git unzip zip autoconf libtool pkg-config cmake zlib1g-dev libffi-dev libssl-dev patch wget libltdl-dev
 
       - name: Install Buildozer and Cython
         run: |
@@ -43,44 +39,27 @@ jobs:
           add-to-path: true
 
       - name: Setup SDK and NDK
+        env:
+          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           mkdir -p $HOME/.buildozer/android/platform
 
-          # ── Print exact NDK path from action ─────────
-          NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
-          echo "=== NDK_SRC path is: $NDK_SRC ==="
-          echo "=== NDK_SRC contents: ==="
-          ls "$NDK_SRC" | head -5
-          echo "=== NDK_SRC parent dir: ==="
-          ls "$(dirname $NDK_SRC)"
+          echo "NDK source path: $NDK_PATH"
+          ls "$NDK_PATH" | head -5
 
-          # ── Check what Buildozer expects ──────────────
-          ANDROID_PY=$(python3 -c "import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
-          echo "=== Buildozer android_ndk_dir value: ==="
-          grep -n "android_ndk_dir\|ndk_dir\s*=" "$ANDROID_PY" | head -20
-
-          # ── Copy NDK to both possible locations ───────
           NDK_DST1="$HOME/.buildozer/android/platform/android-ndk-r25b"
           NDK_DST2="$HOME/.buildozer/android/platform/android-ndk-r25.2.9519653"
+          cp -r "$NDK_PATH" "$NDK_DST1"
+          cp -r "$NDK_PATH" "$NDK_DST2"
+          echo "NDK1 exists: $(test -d $NDK_DST1 && echo YES || echo NO)"
+          echo "NDK2 exists: $(test -d $NDK_DST2 && echo YES || echo NO)"
 
-          cp -r "$NDK_SRC" "$NDK_DST1"
-          cp -r "$NDK_SRC" "$NDK_DST2"
-
-          echo "NDK1 is dir: $(test -d $NDK_DST1 && echo YES || echo NO)"
-          echo "NDK2 is dir: $(test -d $NDK_DST2 && echo YES || echo NO)"
-          echo "NDK1 contents:"
-          ls "$NDK_DST1" | head -3
-
-          # ── SDK ──────────────────────────────────────
           SDK_DST="$HOME/.buildozer/android/platform/android-sdk"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            --licenses > /dev/null 2>&1 || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "platform-tools"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.2" "platform-tools"
           cp -r "$ANDROID_HOME" "$SDK_DST"
-          echo "SDK is dir: $(test -d $SDK_DST && echo YES || echo NO)"
+          echo "SDK exists: $(test -d $SDK_DST && echo YES || echo NO)"
+          find "$SDK_DST/build-tools" -name "aidl" 2>/dev/null
 
       - name: Patch Buildozer NDK method
         run: python3 patch_buildozer.py
@@ -88,38 +67,20 @@ jobs:
       - name: Verify patch
         run: |
           ANDROID_PY=$(python3 -c "import buildozer, os; print(os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py'))")
-          echo "Patched method:"
-          grep -A 12 "def _install_android_ndk" "$ANDROID_PY"
-
-          echo "=== android_ndk_dir resolved value ==="
-          python3 -c "
-import buildozer, os, sys
-sys.argv = ['buildozer', 'android', 'debug']
-# just print where buildozer would look
-import re
-path = os.path.join(os.path.dirname(buildozer.__file__), 'targets/android.py')
-with open(path) as f:
-    content = f.read()
-matches = re.findall(r'android_ndk_dir.*', content)
-for m in matches[:5]:
-    print(m)
-"
+          echo "Patched method preview:"
+          grep -A 10 "def _install_android_ndk" "$ANDROID_PY"
+          echo "NDK dirs:"
+          ls $HOME/.buildozer/android/platform/ | grep ndk
 
       - name: Build APK
+        env:
+          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          NDK_DIR1="$HOME/.buildozer/android/platform/android-ndk-r25b"
-          NDK_DIR2="$HOME/.buildozer/android/platform/android-ndk-r25.2.9519653"
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
 
-          # Use whichever NDK exists
-          if [ -d "$NDK_DIR1" ]; then
-            NDK_DIR="$NDK_DIR1"
-          else
-            NDK_DIR="$NDK_DIR2"
-          fi
-
-          echo "Using NDK: $NDK_DIR"
           echo "NDK exists: $(test -d $NDK_DIR && echo YES || echo NO)"
+          echo "SDK exists: $(test -d $SDK_DIR && echo YES || echo NO)"
 
           export ANDROIDSDK="$SDK_DIR"
           export ANDROIDNDK="$NDK_DIR"
