@@ -24,37 +24,53 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y python3-pip build-essential git unzip zip autoconf libtool pkg-config cmake zlib1g-dev libffi-dev libssl-dev patch wget
+          sudo apt-get install -y \
+            python3-pip build-essential git unzip zip \
+            autoconf libtool pkg-config cmake \
+            zlib1g-dev libffi-dev libssl-dev patch wget
 
-      - name: Install Python dependencies
+      - name: Install Buildozer and Cython
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
 
-      - name: Install Android NDK r25b
+      - name: Install NDK r25b
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25b
           add-to-path: true
 
-      - name: Install Android SDK
+      - name: Prepare Buildozer platform folder
         run: |
-          ANDROID_SDK=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdtools.zip
-          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
-          mv /tmp/cmdtools/cmdline-tools $ANDROID_SDK/cmdline-tools/latest
-          yes | $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK --licenses > /dev/null 2>&1 || true
-          $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+          mkdir -p $HOME/.buildozer/android/platform
 
-      - name: Link NDK and patch Buildozer
-        run: |
-          NDK_DST=$HOME/.buildozer/android/platform/android-ndk-r25b
-          mkdir -p $(dirname $NDK_DST)
-          ln -sfn ${{ steps.setup-ndk.outputs.ndk-path }} $NDK_DST
-          echo "NDK linked to: $NDK_DST"
-          python3 patch_buildozer.py
+          # ── NDK: copy as real directory ───────────────
+          NDK_SRC="${{ steps.setup-ndk.outputs.ndk-path }}"
+          NDK_DST="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          echo "Copying NDK from $NDK_SRC to $NDK_DST"
+          cp -r "$NDK_SRC" "$NDK_DST"
+
+          # Verify NDK is real directory
+          echo "NDK is real dir: $(test -d $NDK_DST && echo YES || echo NO)"
+          echo "NDK contents:"
+          ls "$NDK_DST" | head -5
+
+          # ── SDK: install into Buildozer folder ────────
+          SDK_DST="$HOME/.buildozer/android/platform/android-sdk"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --licenses > /dev/null 2>&1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "platform-tools"
+          cp -r "$ANDROID_HOME" "$SDK_DST"
+
+          # Verify SDK
+          echo "SDK build-tools:"
+          ls "$SDK_DST/build-tools/"
+          echo "aidl location:"
+          find "$SDK_DST/build-tools" -name "aidl"
 
       - name: Cache Buildozer
         uses: actions/cache@v4
@@ -66,13 +82,22 @@ jobs:
 
       - name: Build APK
         run: |
-          export ANDROIDSDK=$HOME/.buildozer/android/platform/android-sdk
-          export ANDROIDNDK=$HOME/.buildozer/android/platform/android-ndk-r25b
+          NDK_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+
+          # Double-check paths exist
+          echo "NDK exists: $(test -d $NDK_DIR && echo YES || echo NO)"
+          echo "SDK exists: $(test -d $SDK_DIR && echo YES || echo NO)"
+
+          export ANDROIDSDK="$SDK_DIR"
+          export ANDROIDNDK="$NDK_DIR"
           export ANDROIDAPI=33
           export ANDROIDMINAPI=21
+          export PATH="$SDK_DIR/build-tools/33.0.2:$SDK_DIR/platform-tools:$PATH"
+
           buildozer -v android debug 2>&1 | tee build.log
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ScientificCalculator-APK
