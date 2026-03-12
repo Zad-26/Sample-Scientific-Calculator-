@@ -146,7 +146,7 @@ class DisplayWidget(BoxLayout):
                          padding=[dp(16), dp(10), dp(16), dp(10)],
                          **kwargs)
         self.size_hint_y = None
-        self.height      = dp(140)
+        self.height      = dp(160)
 
         with self.canvas.before:
             self._bg_col  = Color(*theme["display_bg"])
@@ -155,42 +155,58 @@ class DisplayWidget(BoxLayout):
 
         self.bind(pos=self._upd, size=self._upd)
 
-        # ANS label (top left)
+        # ANS label top-left (small, shows previous answer)
         self.ans_lbl = Label(
             text="", font_size=sp(11),
             color=theme["txt_dim"],
-            halign="left", valign="top",
-            size_hint_y=None, height=dp(20))
-        self.ans_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+            halign="left", valign="middle",
+            size_hint_y=None, height=dp(22))
+        self.ans_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
         self.add_widget(self.ans_lbl)
 
-        # expression (middle)
+        # Expression label (what user typed, small, right-aligned)
         self.expr_lbl = Label(
-            text="", font_size=sp(13),
+            text="", font_size=sp(15),
             color=theme["txt_dim"],
             halign="right", valign="middle",
-            size_hint_y=None, height=dp(28))
-        self.expr_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+            size_hint_y=None, height=dp(30))
+        self.expr_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
         self.add_widget(self.expr_lbl)
 
-        # result (big, bottom)
+        # Result label — full answer, large, auto-shrinks for long numbers
         self.result_lbl = Label(
-            text="0", font_size=sp(42),
+            text="0", font_size=sp(46),
             color=theme["txt_main"],
             halign="right", valign="bottom",
             bold=True)
-        self.result_lbl.bind(size=lambda w,s: setattr(w,'text_size',s))
+        self.result_lbl.bind(size=self._update_font)
         self.add_widget(self.result_lbl)
+
+    def _update_font(self, widget, size):
+        widget.text_size = size
+        n = len(widget.text or "0")
+        if n <= 9:
+            widget.font_size = sp(46)
+        elif n <= 13:
+            widget.font_size = sp(36)
+        elif n <= 18:
+            widget.font_size = sp(26)
+        else:
+            widget.font_size = sp(19)
+
+    def set_result(self, text):
+        self.result_lbl.text = text
+        self._update_font(self.result_lbl, self.result_lbl.size)
 
     def _upd(self, *_):
         self._bg_rect.pos  = self.pos
         self._bg_rect.size = self.size
 
     def update_theme(self, theme):
-        self._bg_col.rgba        = theme["display_bg"]
-        self.expr_lbl.color      = theme["txt_dim"]
-        self.result_lbl.color    = theme["txt_main"]
-        self.ans_lbl.color       = theme["txt_dim"]
+        self._bg_col.rgba     = theme["display_bg"]
+        self.expr_lbl.color   = theme["txt_dim"]
+        self.result_lbl.color = theme["txt_main"]
+        self.ans_lbl.color    = theme["txt_dim"]
 
     def flash(self, color):
         orig = list(self.result_lbl.color)
@@ -387,11 +403,11 @@ class CalculatorLayout(BoxLayout):
             size_hint_x=None, width=dp(40))
         top.add_widget(self._mode_lbl)
 
-        # settings button — text label so it's always visible
+        # settings button — gear icon ⚙
         settings_btn = Button(
-            text="Settings",
-            font_size=sp(12), bold=True,
-            size_hint_x=None, width=dp(76),
+            text="⚙",
+            font_size=sp(22), bold=False,
+            size_hint_x=None, width=dp(48),
             background_normal="",
             background_color=(0,0,0,0),
             color=t["txt_eq"])
@@ -400,7 +416,7 @@ class CalculatorLayout(BoxLayout):
             self._set_btn_rect = RoundedRectangle(
                 pos=settings_btn.pos,
                 size=settings_btn.size,
-                radius=[dp(8)])
+                radius=[dp(12)])
         settings_btn.bind(
             pos =lambda w,v: setattr(self._set_btn_rect,'pos',v),
             size=lambda w,s: setattr(self._set_btn_rect,'size',s))
@@ -458,7 +474,7 @@ class CalculatorLayout(BoxLayout):
         self._mk(g,"DEG/RAD","btn_func","txt_func", self._toggle_deg, h=hb, font_size=11)
         self._mk(g,"(",      "btn_op",  "txt_op",   P("("),  h=hb)
         self._mk(g,")",      "btn_op",  "txt_op",   P(")"),  h=hb)
-        self._mk(g,"⌫",      "btn_func","txt_clear", self._backspace, h=hb, font_size=18)
+        self._mk(g,"⟵",      "btn_func","txt_clear", self._backspace, h=hb, font_size=20)
         self._mk(g,"AC",     "btn_clear","txt_clear", self._clear_all, h=hb)
 
         # ── row 1: trig
@@ -558,8 +574,9 @@ class CalculatorLayout(BoxLayout):
     def _clear_all(self):
         self._expression  = ""
         self._just_result = False
-        self._display.expr_lbl.text   = ""
-        self._display.result_lbl.text = "0"
+        self._display.expr_lbl.text = ""
+        self._display.ans_lbl.text  = ""
+        self._display.set_result("0")
         self._display.flash(self.theme["accent2"])
 
     def _toggle_deg(self):
@@ -569,8 +586,8 @@ class CalculatorLayout(BoxLayout):
     def _update_display(self):
         d = (self._expression
              .replace("*","×").replace("/","÷").replace("-","−"))
-        self._display.expr_lbl.text   = d
-        self._display.result_lbl.text = d or "0"
+        self._display.expr_lbl.text = ""
+        self._display.set_result(d or "0")
 
     # ── evaluate ──────────────────────────────────────
     def _evaluate(self):
@@ -587,14 +604,15 @@ class CalculatorLayout(BoxLayout):
                     and result == int(result)
                     and abs(result) < 1e15):
                 result = int(result)
-            self._display.result_lbl.text = str(result)
+            result_str = str(result)
+            self._display.set_result(result_str)
             self._last_answer  = result
-            self._display.ans_lbl.text = f"ANS  =  {result}"
+            self._display.ans_lbl.text = f"ANS = {result_str}"
             self._expression   = str(result)
             self._just_result  = True
             self._display.flash(self.theme["accent"])
         except Exception:
-            self._display.result_lbl.text = "Error"
+            self._display.set_result("Error")
             self._display.flash(self.theme["accent2"])
             self._expression = ""
 
